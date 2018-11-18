@@ -166,36 +166,57 @@ def permute_row(puzzle,row):
         res.append(new_puzzle)
     return res
 
-
-
-def do_search(puzzle):
+def do_gradient_search(puzzle):
     curr_puzzle = puzzle
     populate_puzzle(curr_puzzle)
-    cell_being_changed = [0,0]
-    row_being_shuffled = 0
 
-    temp = 1000
-    prob = 0
-    cooling_schedule = 10
-    itt = 0
-    iterations = 0
+    failed_iterations = 0
 
     while(curr_puzzle.get_total_conflicts() != 0):
-        iterations += 1
-        if iterations == 50:
-            return do_search(puzzle) #really
-
-        print(iterations)
-        # not gonna use mod, incase it overflows
-        # this should work the same way
-        if row_being_shuffled >= 9:
-            row_being_shuffled = 0
-
-        # if cell_being_change[0] > 8:
-        #     cell_being_change[0] = 0
+        failed_iterations += 1
+        print(failed_iterations)
+        if failed_iterations == 50:
+            return do_gradient_search(puzzle)
         #
-        # if cell_being_change[1] > 8:
-        #     cell_being_change[0] = 0
+        # print(iterations)
+        for i in range(len(curr_puzzle.config)):
+            for j in range(len(curr_puzzle.config[i])):
+                if curr_puzzle.get_total_conflicts == 0:
+                    return curr_puzzle
+                new_puzzle = SudokuPuzzle(copy.deepcopy(curr_puzzle.config))
+                new_puzzle.cell_is_editable = copy.deepcopy(curr_puzzle.cell_is_editable)
+                best_puzzle = curr_puzzle
+                for k in range(1,10):
+                    if new_puzzle.cell_is_editable[i][j]:
+                        new_puzzle.config[i][j] = k
+                    if new_puzzle.get_total_conflicts() < best_puzzle.get_total_conflicts():
+                        best_puzzle = SudokuPuzzle(copy.deepcopy(new_puzzle.config))
+                        best_puzzle.cell_is_editable = copy.deepcopy(new_puzzle.cell_is_editable)
+                        print("Total conflicts : " + str(new_puzzle.get_total_conflicts()))
+                        failed_iterations = 0
+                    elif random.random() > .9 and new_puzzle.get_total_conflicts() == best_puzzle.get_total_conflicts():
+                        best_puzzle = SudokuPuzzle(copy.deepcopy(new_puzzle.config))
+                        best_puzzle.cell_is_editable = copy.deepcopy(new_puzzle.cell_is_editable)
+                        print("Total conflicts : " + str(new_puzzle.get_total_conflicts()))
+                curr_puzzle = best_puzzle
+    return curr_puzzle
+
+def do_search(puzzle,prev = None):
+    res = {"restarts" : 0,
+            "solution" : None,
+            "nodes_visited" : 0,
+            "steps" : 0,
+            "failed_attemps" : 0}
+    curr_puzzle = puzzle
+    populate_puzzle(curr_puzzle)
+
+    failed_iterations = 0
+
+    while(curr_puzzle.get_total_conflicts() != 0):
+        if failed_iterations == 20:
+            print("\nRestarting")
+            res["restarts"] += 1
+            return do_search(puzzle,res)
 
         for i in range(len(curr_puzzle.config)):
             for j in range(len(curr_puzzle.config[i])):
@@ -204,53 +225,76 @@ def do_search(puzzle):
                 for k in range(1,10):
                     if new_puzzle.cell_is_editable[i][j]:
                         new_puzzle.config[i][j] = k
-                    # prob = math.e**((curr_puzzle.get_total_conflicts() - new_puzzle.get_total_conflicts()) / temp)
-                    # # print(prob)
-                    # # input()
-                    # if prob > random.random():
-                    #     curr_puzzle = new_puzzle
-                    #     print(curr_puzzle.get_total_conflicts())
-                    #     print(prob)
-                    #     break
+                        res["nodes_visited"] += 1
                     if new_puzzle.get_total_conflicts() < curr_puzzle.get_total_conflicts():
                         curr_puzzle = new_puzzle
-                        print("Total conflicts : " +str(curr_puzzle.get_total_conflicts()))
-                        iterations = 0
+                        res["steps"] += 1
+                        failed_iterations = 0
                         break
                     elif random.random() > .9 and new_puzzle.get_total_conflicts() == curr_puzzle.get_total_conflicts():
                         curr_puzzle = new_puzzle
+                        res["steps"] += 1
                         break
+        failed_iterations += 1
+        res["failed_attemps"] = failed_iterations
+        sys.stdout.write("\rConflicts: %3d" % curr_puzzle.get_total_conflicts())
+        sys.stdout.flush()
 
-        # next_puzzles = permute_row(curr_puzzle,row_being_shuffled)
-        #
-        # for next_puzzle in next_puzzles:
-            # if next_puzzle.get_total_conflicts() < curr_puzzle.get_total_conflicts():
-        #         curr_puzzle = next_puzzle
-        #         print(curr_puzzle.get_total_conflicts())
+    res["solution"] = curr_puzzle
+    return res
 
-        # row_being_shuffled += 1
-        # if itt % cooling_schedule == 0:
-        #     if temp > .01:
-        #         temp -= .01
+def do_stochastic_search(puzzle):
+    res = {"wrong_steps" : 0,
+            "solution" : None,
+            "nodes_visited" : 0,
+            "steps" : 0,
+            "failed_attemps" : 0}
+    curr_puzzle = puzzle
+    populate_puzzle(curr_puzzle)
 
+    failed_iterations = 0
 
-    return curr_puzzle
+    while(curr_puzzle.get_total_conflicts() != 0):
+        for i in range(len(curr_puzzle.config)):
+            for j in range(len(curr_puzzle.config[i])):
+                new_puzzle = SudokuPuzzle(copy.deepcopy(curr_puzzle.config))
+                new_puzzle.cell_is_editable = copy.deepcopy(curr_puzzle.cell_is_editable)
+                for k in range(1,10):
+                    if new_puzzle.cell_is_editable[i][j]:
+                        new_puzzle.config[i][j] = k
+                        res["nodes_visited"] += 1
+                    if new_puzzle.get_total_conflicts() < curr_puzzle.get_total_conflicts():
+                        curr_puzzle = new_puzzle
+                        res["steps"] += 1
+                        failed_iterations = 0
+                        break
+                    elif random.random() > .9 and new_puzzle.get_total_conflicts() == curr_puzzle.get_total_conflicts():
+                        curr_puzzle = new_puzzle
+                        res["steps"] += 1
+                        break
+                    elif random.random() > .9995 and failed_iterations > 10:
+                        curr_puzzle = new_puzzle
+                        res["wrong_steps"] += 1
+                        break
+            failed_iterations += 1
+            res["failed_attemps"] = failed_iterations
+            sys.stdout.write("\rConflicts: %4d" % curr_puzzle.get_total_conflicts())
+            sys.stdout.flush()
+
+    res["solution"] = curr_puzzle
+    return res
 
 
 def main():
-    samples = open("C:\\Users\\dell\\Desktop\\sudoku_puzzles.txt","r")
+    samples = open("sudoku_puzzles.txt","r")
     puzzles = []
 
     for p in samples:
         puzzles.append(create_puzzle(p))
 
     p = puzzles[0]
-    print(do_search(p))
-    # do_search(p)
-    # for i in range(9):
-    #   print('\t'.join(p[i*9:i*9+9]))
-
-
+    print("\n" + str(do_stochastic_search(p)['solution']))
+    print("\n" + str(do_search(p)['solution']))
 
 if __name__ == '__main__':
     main()
