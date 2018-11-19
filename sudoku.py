@@ -1,4 +1,9 @@
+import sys
 import random
+import plotly
+import plotly.graph_objs as go
+
+from plotly import tools
 import copy
 import itertools
 import sys
@@ -9,6 +14,7 @@ class SudokuPuzzle:
         self.config = init_config
         self.cell_is_editable = [[False for i in range(len(init_config))] for j in range(len(init_config[0]))]
         self.conflicts = SudokuPuzzle.__count_conflicts(self.config)
+        self.blanks = 0
         for i in range(len(self.config)):
             for j in range(len(self.config[0])):
                 if int(init_config[i][j]) == 0:
@@ -125,25 +131,7 @@ def shuffle_puzzle_row(puzzle,row):
 
     return res
 
-# returns an array of puzzles where the row indicated has been permutated??
-def permute_row(puzzle,row):
-    res = []
-    candidates = [x for x in range(1,len(puzzle.config[row]) + 1)]
-    candidate_indices = [x for x in range(len(puzzle.config[row]))]
-    for i in range(len(puzzle.config[row])):
-        if not puzzle.cell_is_editable[row][i]:
-            candidates.remove(puzzle.config[row][i])
-            candidate_indices.remove(i)
 
-    permutations = list(itertools.permutations(candidates))
-    for r in permutations:
-        r = list(r)
-        new_puzzle = SudokuPuzzle(copy.deepcopy(curr_puzzle.config))
-        new_puzzle.cell_is_editable = copy.deepcopy(curr_puzzle.cell_is_editable)
-        for i in candidate_indices:
-            new_puzzle.config[row][i] = r.pop()
-        res.append(new_puzzle)
-    return res
 
 def do_gradient_search(puzzle):
     curr_puzzle = puzzle
@@ -186,7 +174,11 @@ def do_search(puzzle,prev = None):
             "nodes_visited" : 0,
             "steps" : 0,
             "failed_attemps" : 0}
-    curr_puzzle = puzzle
+
+
+    if prev:
+        res = prev
+    curr_puzzle = copy.deepcopy(puzzle)
     populate_puzzle(curr_puzzle)
 
     failed_iterations = 0
@@ -216,7 +208,7 @@ def do_search(puzzle,prev = None):
                         break
         failed_iterations += 1
         res["failed_attemps"] = failed_iterations
-        sys.stdout.write("\rConflicts: %3d" % curr_puzzle.get_total_conflicts())
+        sys.stdout.write("\rRandom Restart - Conflicts: %3d" % curr_puzzle.get_total_conflicts())
         sys.stdout.flush()
 
     res["solution"] = curr_puzzle
@@ -257,23 +249,72 @@ def do_stochastic_search(puzzle):
                         break
             failed_iterations += 1
             res["failed_attemps"] = failed_iterations
-            sys.stdout.write("\rConflicts: %4d" % curr_puzzle.get_total_conflicts())
+            sys.stdout.write("\rStochastic - Conflicts: %4d" % curr_puzzle.get_total_conflicts())
             sys.stdout.flush()
 
     res["solution"] = curr_puzzle
     return res
 
+def plot(x_val, y_val, line_name):
+    trace = go.Scatter(
+        x = x_val,
+        y = y_val,
+        mode = 'lines',
+        name = line_name
+    )
+    return trace
 
-def main():
+def get_plotdata():
+    res = {}
+    wrong_steps_points = []
+    s_num_of_steps_points = []
+    s_num_of_nodes_visited_points = []
+    r_restarts_points = []
+    r_num_of_steps_points = []
+    r_num_of_nodes_visited_points = []
+    # list of lists(l) of length 2 where l[0] is the solution detph and l[1] is the max_frontier_size
+
     samples = open("sudoku_puzzles.txt","r")
     puzzles = []
 
     for p in samples:
         puzzles.append(create_puzzle(p))
 
-    p = puzzles[0]
-    print("\n" + str(do_stochastic_search(p)['solution']))
-    print("\n" + str(do_search(p)['solution']))
+    for i in range(len(puzzles)):
+        p = puzzles[i]
+        x = copy.deepcopy(p)
+        print("\n Puzzle : %d" % i)
+        s_res = do_stochastic_search(p)
+        r_res = do_search(x)
+        print(r_res)
+
+        wrong_steps_points.append([i,s_res['wrong_steps']])
+        s_num_of_steps_points.append([i,s_res['steps']])
+        s_num_of_nodes_visited_points.append([i,s_res['nodes_visited']])
+        r_restarts_points.append([i,r_res['restarts']])
+        r_num_of_steps_points.append([i,r_res['steps']])
+        r_num_of_nodes_visited_points.append([i,r_res['nodes_visited']])
+
+
+    res['wrong_steps'] = plot([p[0] for p in wrong_steps_points],[p[1] for p in wrong_steps_points],"s_wrong_steps") #for space complexity graph
+    res['s_steps'] = plot([p[0] for p in s_num_of_steps_points],[p[1] for p in s_num_of_steps_points],"s_num_of_steps")
+    res['s_nodes_visited'] = plot([p[0] for p in s_num_of_nodes_visited_points],[p[1] for p in s_num_of_nodes_visited_points],"s_num_of_nodes_visited_points")
+    res['restarts'] = plot([p[0] for p in r_restarts_points],[p[1] for p in r_restarts_points],"r_restarts") #for space complexity graph
+    res['r_steps'] = plot([p[0] for p in r_num_of_steps_points],[p[1] for p in r_num_of_steps_points],"r_num_of_steps")
+    res['r_nodes_visited'] = plot([p[0] for p in r_num_of_nodes_visited_points],[p[1] for p in r_num_of_nodes_visited_points],"r_num_of_nodes_visited_points")
+
+    return res
+
+def main():
+    plots = get_plotdata()
+    plotdata = [plots['wrong_steps'], plots['s_steps'], plots['s_nodes_visited'],
+        plots['restarts'], plots['r_steps'],
+        plots['r_nodes_visited']]
+
+    plotly.offline.plot({
+    "data": plotdata,
+    "layout": go.Layout(title="Sudoku Local Search Plot Data", xaxis={'title':"Instance"}, yaxis={'title':"Unit"})
+    }, auto_open=True, filename='sudoku-local-search-plot-data.html')
 
 if __name__ == '__main__':
     main()
