@@ -243,7 +243,7 @@ def do_stochastic_search(puzzle):
                         curr_puzzle = new_puzzle
                         res["steps"] += 1
                         break
-                    elif random.random() > .9995 and failed_iterations > 10:
+                    elif random.random() > .999 and failed_iterations > 10:
                         curr_puzzle = new_puzzle
                         res["wrong_steps"] += 1
                         break
@@ -282,11 +282,39 @@ def get_plotdata():
 
     for i in range(len(puzzles)):
         p = puzzles[i]
-        x = copy.deepcopy(p)
         print("\n Puzzle : %d" % i)
-        s_res = do_stochastic_search(p)
-        r_res = do_search(x)
-        print(r_res)
+        itt = 10
+        s_res = None
+        r_res = None
+        for j in range(itt):
+            temp_s_res = do_stochastic_search(copy.deepcopy(p))
+            if s_res:
+                s_res["wrong_steps"] += temp_s_res["wrong_steps"]
+                s_res["nodes_visited"] += temp_s_res["nodes_visited"]
+                s_res["steps"] += temp_s_res["nodes_visited"]
+                s_res["failed_attemps"] += temp_s_res["failed_attemps"]
+            else:
+                s_res = temp_s_res
+
+            temp_r_res = do_search(copy.deepcopy(p))
+            if r_res:
+                r_res["restarts"] += temp_r_res["restarts"]
+                r_res["nodes_visited"] += temp_r_res["nodes_visited"]
+                r_res["steps"] += temp_r_res["nodes_visited"]
+                r_res["failed_attemps"] += temp_r_res["failed_attemps"]
+            else:
+                r_res = temp_r_res
+
+        # averaging
+        s_res["wrong_steps"] = s_res["wrong_steps"] / itt
+        s_res["nodes_visited"] = s_res["nodes_visited"] / itt
+        s_res["steps"] = s_res["nodes_visited"] / itt
+        s_res["failed_attemps"] = s_res["failed_attemps"] / itt
+
+        r_res["restarts"] = r_res["restarts"] / itt
+        r_res["nodes_visited"] = r_res["nodes_visited"] / itt
+        r_res["steps"] = r_res["nodes_visited"] / itt
+        r_res["failed_attemps"] = r_res["failed_attemps"] / itt
 
         wrong_steps_points.append([i,s_res['wrong_steps']])
         s_num_of_steps_points.append([i,s_res['steps']])
@@ -296,24 +324,60 @@ def get_plotdata():
         r_num_of_nodes_visited_points.append([i,r_res['nodes_visited']])
 
 
-    res['wrong_steps'] = plot([p[0] for p in wrong_steps_points],[p[1] for p in wrong_steps_points],"s_wrong_steps") #for space complexity graph
-    res['s_steps'] = plot([p[0] for p in s_num_of_steps_points],[p[1] for p in s_num_of_steps_points],"s_num_of_steps")
-    res['s_nodes_visited'] = plot([p[0] for p in s_num_of_nodes_visited_points],[p[1] for p in s_num_of_nodes_visited_points],"s_num_of_nodes_visited_points")
-    res['restarts'] = plot([p[0] for p in r_restarts_points],[p[1] for p in r_restarts_points],"r_restarts") #for space complexity graph
-    res['r_steps'] = plot([p[0] for p in r_num_of_steps_points],[p[1] for p in r_num_of_steps_points],"r_num_of_steps")
-    res['r_nodes_visited'] = plot([p[0] for p in r_num_of_nodes_visited_points],[p[1] for p in r_num_of_nodes_visited_points],"r_num_of_nodes_visited_points")
+    res['wrong_steps'] = plot(
+            [p[0] for p in wrong_steps_points],
+            [p[1] for p in wrong_steps_points],
+            "Stochastic - Num of wrong steps"
+        )
+
+    res['s_steps'] = plot(
+            [p[0] for p in s_num_of_steps_points],
+            [p[1] for p in s_num_of_steps_points],
+            "Stochastic - Num of steps"
+        )
+
+    res['s_nodes_visited'] = plot(
+            [p[0] for p in s_num_of_nodes_visited_points],
+            [p[1] for p in s_num_of_nodes_visited_points],
+            "Stochastic - Num of nodes visited points"
+        )
+
+    res['restarts'] = plot(
+            [p[0] for p in r_restarts_points],
+            [p[1] for p in r_restarts_points],
+            "Random Restarts"
+        )
+    res['r_steps'] = plot(
+            [p[0] for p in r_num_of_steps_points],
+            [p[1] for p in r_num_of_steps_points],
+            "Random Restart - Num of steps"
+        )
+    res['r_nodes_visited'] = plot(
+            [p[0] for p in r_num_of_nodes_visited_points],
+            [p[1] for p in r_num_of_nodes_visited_points],
+            "Random Restart - Num of nodes visited points"
+        )
 
     return res
 
 def main():
     plots = get_plotdata()
-    plotdata = [plots['wrong_steps'], plots['s_steps'], plots['s_nodes_visited'],
-        plots['restarts'], plots['r_steps'],
-        plots['r_nodes_visited']]
+    plotdata = [
+            plots['wrong_steps'],
+            plots['s_steps'],
+            plots['s_nodes_visited'],
+            plots['restarts'],
+            plots['r_steps'],
+            plots['r_nodes_visited']
+        ]
 
     plotly.offline.plot({
     "data": plotdata,
-    "layout": go.Layout(title="Sudoku Local Search Plot Data", xaxis={'title':"Instance"}, yaxis={'title':"Unit"})
+    "layout": go.Layout(
+            title="Sudoku Local Search Plot Data( Averaged over 10 iterations)",
+            xaxis={'title':"Instance"},
+            yaxis={'title':"Unit"}
+        )
     }, auto_open=True, filename='sudoku-local-search-plot-data.html')
 
 if __name__ == '__main__':
