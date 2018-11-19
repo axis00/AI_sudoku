@@ -104,11 +104,7 @@ def populate_puzzle(puzzle):
             if val == 0:
                 puzzle.config[i][j] = candidates.pop()
 
-# def populate_puzzle(puzzle):
-#     for i in range(len(puzzle.config)):
-#         for j in range(len(puzzle.config[i])):
-#             if puzzle.cell_is_editable[i][j]:
-#                 puzzle.config[i][j] = random.randint(1,9)
+                puzzle.config[i][j] = random.randint(1,9)
 
 # function that returns an new puzzle object that has has the row indicated shuffled
 # shuffling happens to element with conflicts greater than 0
@@ -128,23 +124,6 @@ def shuffle_puzzle_row(puzzle,row):
             res.config[row][i] = conflict_values.pop()
 
     return res
-
-# my brain can't think anymore
-# def get_next_best(puzzle):
-#     next = []
-#     dummy_puzzle = copy.deepcopy(puzzle)
-#     for i in range(len(dummy_puzzle.config)):
-#         row_candidates = [x for x in range(1,len(dummy_puzzle.config[0]) + 1)]
-#         row_candidates_indices = [x for x in range(lendummy_puzzle.config[0]))]
-#         for j in range(len(puzzle.config[i])):
-#             if not puzzle.cell_is_editable[i][j]:
-#                 row_candidates.remove(puzzle.config[i][j])
-#                 row_candidates_indices.remove(j)
-#         row_permutations = itertools.permutations(row_candidates)
-#         for row_perm in row_permutations:
-#             for r_i in row_candidates_indices:
-#                 dummy_puzzle.config[i][r_i] =
-
 
 # returns an array of puzzles where the row indicated has been permutated??
 def permute_row(puzzle,row):
